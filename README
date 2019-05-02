@@ -1,0 +1,144 @@
+Copyright 2019 ARM Ltd. and University of Cyprus
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, 
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, 
+and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+AUTOMATIC FRAMEWORK FOR STRESS TEST GENERATION (GeST Generating Stress-Tests)
+
+GENERAL DESCRIPTION
+
+This framework is based on Genetic algorithms (GA) and it has been succesfully been used to develop power viruses (stres-tests that maximize power consumption), 
+dI/dt viruses (stress-tests that maximize voltage noise) and IPC stress tests (maximize instruction per cycle throughput) on various CPUs such as ARM cortex-A15, cortex-A7,
+cortex-A57,cortex-A53, cortex-A72, AMD Athlon II X4 645, X-Gene2, X-Gene3
+
+GA optimize for the target metric using bio-inspired operators such as crossover (exchange of genes), mutation, selection of fittest individual for breeding (for crossover).
+GA typically begins with a population of individuals (randomly generated) and evolves this population by measuring the fitness of the individuals and applying the aforementioned operators.
+
+The framework produces assembly instructions sequences that are measured for the metric of interest (with a fitness function). The goal of the framework is to generate the fittest instruction sequence 
+(in the GA terminology the fittest individual). 
+For instance if the goal is maximum CPU power consumption the framework attempts to generate instruction sequences that maximize the power consumption.
+
+The framework can be extended by the user to stress other components such as DRAM, Last level cache (Uncore) etc. Also it can be extended to support more complicate fitness functions that take in account 
+multiple measurement metrics (power, pef counters etc) and instinsic instruction sequence characteristics such as instruction mix breakdown.
+
+The framework also offers an easy interface to the user to add custom measurement procedures. 
+Some template measurements are included in the framework such as maximizing max power using IPMI readings and maximizing IPC through perf counters on a ssh reachable machine.
+But for instance if a user wants to maximize on a bare metal machine power using a specific power plug meter, he can write his own measurement function and seemlesly integrate it in the framework (read DEFINING CUSTOM MEASUREMENTS - CUSTOM FITNESS CLASSES and FUNCTIONS section).
+
+The framework is written in Python 3 and xml is used for configuration files
+
+REQUIREMENTS
+
+The framework shoud work without any issues on Linux enviroment, but it has been tested only on Windows only with Eclipse IDE for development and running experiments. 
+The following enviroment is recommended
+
+1) Windows OS
+2) LiClipse IDE
+3) Python 3.6 is recommended but probably any Python 3 would work (NOTE this is not compatible with python 2!!)
+4) NI-visa drivers must be installed if going to use measurement instruments such oscilloscopes and spectrum analyzer for measurements (tested with NI-VISA 5)
+5) Paramiko python libary and its dependencies must be installed for enabling ssh communication (execute from shell the command: pip install paramiko #pip is the python package manager ). Very useful coordinating execution on the target machine.
+6) Python PYVISA libary if going to use measurement instruments such oscilloscopes and spectrum analyzer for measurements
+
+INSTALLATION INSTRUCTIONS on WINDOWS
+
+1) Download liclipse for python development https://www.liclipse.com/
+2) Download python 3 https://www.python.org/downloads/
+3) Locate pip binary. For python 3.6 should be found in C:\Users\UserName\AppData\Local\Programs\Python\Python36-32\python.exe
+   From a windows terminal run   
+   pip install paramiko
+   pip install -U pyvisa #necessary if measurements with spectrum analyzers and oscilloscopes
+
+
+RUN INSTRUCTIONS ON ECLIPSE/Liclipse
+
+1) Import the project as Python project
+2) Set correctly the configuration file (look section below)
+3) Right click on the project then debug-as. In the arguments section specify the full path to the configuration file you will use.
+
+SET CORRECTLY THE CONFIGURATION FILE
+This section explains how to set correctly the configuration file and we will explain this with a particular example.
+Let's say you want to optimize for maximum power consumption on an x86 CPU using likwid power meter.
+In this case you can use the following provided class and files: configuration_likwidPowerMeter.xml, measurementLikwid.xml and MeasurementLikwidPower.py.
+Below are some steps you need to follow to set correctly the configuration files in relation to your environemnt. Similar steps should be followed for the IPC optimization (configuration files included in the release) 
+any any other optimization you wish to perform.
+
+1) Open the configuration_likwidPowerMeter.xml
+2) Set the dirToSaveResults attribute to the path where you want the results to be saved.
+3) Set the compilationDir to the path where the assembly template compilation is located (the director where the main_original.s is located)
+4) Make sure the main_original.s has   a  #loop_code string which point to GeST where to print the individual. Add to the main_original.s any register and memory initilization you wish to have.
+5) Make sure that the measurementClass attribute is set to MeasurementLikwidPower, the measurementClassConfFile  is set to measurementLikwid and the fitnessClass to DefaultFitness
+6) On the target machine (the machine for which the virus is generated) create a temporary directory which will be used by the GA for compiling the individuals and placing temporary the 
+individual's source code and binary.
+7) Open the measurement xml configuration file, in this particular example the file you need to open is the measurement/measurementLikwid.xml
+8) Set the targetRunDir with the path where GA temporary directory is located (the one created in step 6)
+9) Set the targetHostname attribute value to the ip or hostname with which the target machine is accessible through ssh
+10) Set the targetSSHusername and targetSSHpassword attributes. Make sure that with the username account you can run sudo commands without password. 
+To achieve this make sure your account belongs to sudo group and if e.g. the target runs Ubuntu add this line "%sudo   ALL=(ALL:ALL) NOPASSWD:ALL " to the /etc/sudoers file. 
+11) Set the core ids that will be used in the optimization (that will run the indiviudal binary)
+12) Set the time_to_measure each individual. For power optimization with likwid we had good results with 5 seconds but ofcourse you are free to play with this variable.
+
+MORE DETAILS ON HOW TO USE GEST
+
+Detailed explanation of the main configuration file options is found in configuration-template-explanation.xml located in ./configurationFiles. 
+Also we recommend to read the ISPASS 2019 paper "GeST an automatic framework for generating CPU stress-tests" https://ieeexplore.ieee.org/document/8695639  which is a good reading to understand the framework and how to use it.
+
+To get more information on how to use GeST and what capabilities it offers please continue reading.
+
+GeST gives you the ability:
+a)  To play with some algorithm parameters e.g. mutation, crossover,loop sizes, population size etc
+b)  To specify explicity what instructions or even instruction sequences you want to use in the optimization process. 
+c)  Specify operands and which instructions will use those operands which eventually give you the ability to force or not force dependencies between instructions
+d)  You can specify fixed code segments which will be present in all the individuals (an individual is an instruction sequence generated) e.g. some check for not touching illegal memory, register and memory initialization   
+e)  Make a run starting with fixed instruction mix breakdwon
+f)  Ability to save a run and continue it after
+g)  Different measurement procedures by defining your own manual class that inherits from the Measurement/Mesurement.py class. 
+    You don't need to change anything else in the code just specify the custom measurement class name in the configuration file.
+h)  Different fitness functions by defining your own manual class that inherits from the Fitness/DefaultFitness.py class
+    You don't need to change anything else in the code just specify the custom measurement class name in the configuration file.
+    
+CONFIGURATION FILES LOCATION
+The main configuarion files should be placed in ./configurationFiles folder. Configuration related to custom measurement classes should be placed in ./configurationFiles/measurement directory
+
+ASSEMBLY COMPILATION DIRECTORY
+The dirs with prefix assembly_compilation are the dirs which contain all the necessary files for the generation of the binary that is going to be run on the target machine. 
+You must specify which dir you are going to use for the compilation in the configuration file. 
+The assembly compilation dir in the most simple form contains one source file that will be compiled, namely the main_original.s 
+The main_orginal.s must contain a line which contains the string “#loop_code”. This string will be replaced by the generated by framework code sequence. 
+Any memory, register initialization or in general common fixed code accross all individuals can be placed on the main_original.s file
+
+FRAMEWORK OUTPUT RESULTS
+The dirToSaveResults parameters which is set in the configuration.xml file specifies the directory in which results – outputs of the framework run will be saved. 
+In this directory you can find the generated code sequences which will be save in ascii format in .txt files. The name format of each file goes like this populationNumber_individualsIdNumber_measurement1_measurement2_etc. 
+You can specify as many measurements as you want. Also a dir which is named after the date/time of the start of the run is created e.g. (13-12-10-15-06 means the run started on 13th of December at 15-06). This dir will contain each population saved in .pkl file and the rand state (also in .pkl format) at each population. 
+This dir can be used as a seed dir in case you want to continue an unfinished run. So basically each run leaves a seed dir behind. (Note to start a run from an existing SeedDir set the seedDir parameter in the configuration file)
+In the seed dir the assembly compilation file is copied.  All the compilations and modifications of the code happen on that copied assembly compilation file which is located in the seed dir.  
+In the seed dir also is copied the configuration.xml and measurement.xml file and the src of the framework which was used for that run.
+The population pkl files can be used for parsing results. After measuring a population the whole population is saved in a .pkl file. 
+The populations are saved in ascending order like this 1.pkl, 2.pkl 3.pkl and etc. The parseGeneticResults.py file is an example of how to parse the population files and get statistics about average and best of each generation as well as the average and best individual’s instruction mix for each population.  
+To use the script just pass the seed dir’s absolute path as argument.  
+
+DEFINING CUSTOM MEASUREMENTS - CUSTOM FITNESS CLASSES and FUNCTIONS
+Framework allows definining custom measurement classes and fitness functions. 
+The measurement procedure is a a very environment specific procedure. A GA stress-test generation framework must support IPC, thermal, power, etc. optimizations. 
+Moreover, for instance, to optimize for power consumption various power measurment tools might be used such as IPMI, RAPL etc. 
+Due to so many alternatives a framework that supports all these alternatives is impossible to create. 
+Hence, we provide a simple interface to the user to write it's own measurement procedures and use them with this framework. Templates of measurement classes can be found in ./Measurement directory and
+the representative configuration files in ./configurationFiles/measurement directory. To add your own measurement class create a class that inherits from Measurement.py and place it ./Measurement directory. 
+You have to overwrite the measure function and most likely you
+will also need to overwite the init function to read any custom parameters required by your class. The custom parameters need to be specified in a configuration file placed in ./configurationFiles/measurement. 
+You don't need to touch any other framework's code to use your measurement class. Just add in the main configuration file the name of the class and the name of the classe's configuration file (just the name not the full path) in the  
+measurementClass and measurementClassConfFile parameters. 
+This is achieved with Python's capability to dynamically load a class (without specifing it during source compilation). 
+
+You can also modify the fitness function with the same principles as for the Measurement class.
+You can do this by inheriting from the DefaultFitness class and overriding the getFitness function. The fitness function takes as parameter the individual after is being measurement. The individual object comes with
+its instruction sequence and its measurements. The default getFitness function just returns the first measurement as the fitness value, e.g. it can be the average power while running the individual. 
+You have to place the custom fitness class in the  ./Fitness directory. To
+use your custom fitness class specify the name in the fitnessClass parameter in the configuration file. 
+For now Fitness classes does not come with a configuration file like measurement classes. 
+If needed this might be changed in the future.  
