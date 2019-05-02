@@ -1,0 +1,546 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+Copyright 2019 ARM Ltd. and University of Cyprus
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, 
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, 
+and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+
+<GA_inputs>
+  <general_inputs>
+
+    
+<!--General GA inputs-->
+    
+<loopSize value="50"/> <!--The size in instructions of the generated code sequences-->
+<population_size value="50"/> <!-- The size of each population - generation-->
+<mutation_rate value="0.02"/> <!-- each instruction will have this probability to be mutated (changed to something else)-->
+<crossover_type value="1"/>
+<!--0 for uniform crossover, 1 for one point crossover. This is a good article that explains the crossover types http://en.wikipedia.org/wiki/Crossover_(genetic_algorithm). I have implemented 
+only two crossover types the uniform and the 1 point. For generating stress tests I found that 1 point crossover is better since strong instructions sequences have higher chance to survive-->
+<crossover_rate value="1.0"/>
+<!--The chance two parent two recombine.. usually is a very high percentage-->
+<uniform_rate value="0.5"/>
+<!--Only used when uniform crossover is set... The chance for each instruction to be crossovered-->
+
+<populations_to_run value="1000"/>
+<ellitism value="true"/>
+ <!--
+ true or false. If true the best individual is promoted to the next generation. I think keeping this to "true" is good choice
+-->
+<selectionMethod value="0"/>
+ <!--
+ 0 for tournament 1 for wheel selection. Only those two are implemented... wheel selection doesn't work really well so I propose tournament. If you want to learn about wheel selection here http://en.wikipedia.org/wiki/Fitness_proportionate_selection
+-->
+<tournament_size value="5"/>
+ <!--
+Only useful with tournament selection. 5 worked well for me but sure feel free to play with this variable more here http://en.wikipedia.org/wiki/Tournament_selection 
+-->
+<save_whole_source value="1"/>
+ <!--
+ choose whether to save the whole individual src code or just the loop instructions.. saving the whole source takes ~4X more disk space but is also more convenient 
+-->
+ <!--
+ when this is 0 to reproduce the src code of an individual copy paste the loop instructions into the template source file (main_original.s) located in compilationDir
+-->
+<measurementClass value="MeasurementIPC"/>
+ <!--
+Enter the name in the class located in the src\Measurement folder that will be used for measurements
+-->
+<measurementClassConfFile value="IPC"/>
+ <!--
+ enter the name of the configuraiton file for the measurement class.. the file must be located in configurationFiles/measurement directory
+-->
+
+<fitnessClass value="DefaultFitness"/>
+ <!--
+Enter the name of the class located in the src\Fitness folder that will be used for calculating the fitness of individuals
+-->
+<instruction_percentage_clue value="False"/>
+ <!-- your initial population will start with a fix number of different instruction types e.g. 50% neon 25% mem and 25% short latency.. If you know a good instruction mix it may
+     speedup the algorithm convergence. True/False case-sensitive-->
+     
+ <!-- end of general GA inputs -->
+ <!-- End of Register and memory initialization -->
+ <!-- Input/output dir -->
+    
+    <!--end of general GA inputs-->
+    
+
+    <!--Input/output dir-->
+    <dirToSaveResults
+        value="C:/Users/admin/Desktop/Garuns/x86_IPC/"      
+    /> 
+    <!-- The code sequeneces will be save in ascii format in .txt files in the specified dir. The name format of each file goes like this populationNumber_individualsIdNumber_fitnessValue_measurement1_.... Also a dir which is named
+    after the date/time of the start of the run is created. This dir will contain each population saved in .pkl file and the rand state (also in .pkl format) at each population. This dir can be used as seed dir in case you want to continue an unfinished run. 
+    Also the contents of this dir can be used for parsing results. The parseGeneticResults.py is an example of how to parse the population files and get statistics -->
+    
+    <seedDir
+      value=""
+    />
+     <!--Use the seedDir if you only want to begin algorithm from some specific indivduals instead of random population. In case you don't want to use this just put "". Otherwise point to the dir that contains the pkl files.. look the dirToSaveResults attribute for more details -->
+   
+    
+  
+    <compilationDir 
+      value="C:/Users/admin/Desktop/liClipseWorkspace/GeST/assembly_compilation_x86_gcc/"
+      />
+     <!-- Dir where the compilation code is located .. IMPORTANT the main_original.s must always contain a line #loop_code. At that line
+      the framework will bring in the generated code sequence.. In main_original.s and startup_original.s you can place all the code that you want to be common between each individual e.g. memory and register initialization... 
+      Actually the only thing that will differ among each individual run
+      should be the individual's code sequence which is placed under the "#loop_code" line-->
+      
+    <!--End of Input/output dir-->
+
+   
+
+    <run_type
+  value="0" >   
+    </run_type>
+    <!--Ignore this input. You should have it always at zero.-->
+    
+  </general_inputs>
+
+  <instruction_types> <!--Specify intruction types and how much will be the amount of each type in the loop.. The percentage will be considered only if the instruction_percentage_clue is set to "True"-->
+    
+    <!-- how much percentage of each kind of instructions type the loop will consist of.. -->
+    <instruction_type
+      id="shortLat"
+      perc="0.40"
+    />
+
+    <instruction_type
+      id="longLat"
+      perc="0.02"
+    />
+
+    <instruction_type
+      id="neonVfp"
+      perc="0.0"
+    />
+    
+     <instruction_type
+      id="floatingPoint"
+      perc="0.38"
+    />
+
+    <instruction_type
+      id="mem"
+      perc="0.15"
+    />
+
+    <instruction_type
+      id="branch"
+      perc="0.05"
+    />
+
+  
+  </instruction_types>
+
+  <instructions_operands>
+    
+    
+    <!-- In this section you define all operands that are going to be used by the instructions.. In this section you must define different type of registers e.g. integer registers and float register, branch labels
+    immediate values and memory subscripts.. Basically you must define whatever comes after an instruction name and you want to be touched by the evolution process of the algorithm-->
+    
+    <!--For each operand you must define an id.. the possible values the operand can take.. and the type of operand... 
+    the algorithm understands and treats differently 3 types of operands 
+    1)registers, 2)constant values(e.g. #4 in LDR x0,[x1,#4]), and 3) immediate values (same thing as constant values)
+    The type must be specified in the type attribute ath the operand definition (examples below)
+    
+    The immediate/constant operand's values can be specified with the min max and stride parameters
+        
+        <operand
+    id="mem_address_subscript"
+    min="0"
+    max="4092"
+    stride="4"
+    type="constant"
+    toggle="False">
+    </operand>
+   
+   while registers are specified through values parameter e.g.
+   
+          <operand
+    id="simd_register"
+    values="v0.4s v1.4s v2.4s v3.4s v4.4s v5.4s v6.4s v7.4s v8.4s v9.4s v10.4s v11.4s"
+    type="register"
+     toggle="False">
+    </operand>
+   
+    Toggling flag is broken don't use it
+    
+    -->
+    
+    <operand
+   id="integer_register"
+   values="%rax %rbx %rdx %rsi %rdi"
+   type="register"
+   toggle="False">
+    </operand>
+    
+    <operand
+   id="sse2_register"
+   values="%xmm0 %xmm1 %xmm2 %xmm3 %xmm4 %xmm5 %xmm6 %xmm7"
+   type="register"
+   toggle="False">
+    </operand>
+
+
+ <operand
+    id="imm_value"
+    min="0"
+    max="2147483647"
+    stride="71582785"
+    type="constant"
+    toggle="False">
+    </operand>
+
+  <operand
+    id="shift_value"
+    min="31"
+    max="31"
+    stride="1"
+    type="constant"
+    toggle="False">
+    </operand>
+
+ <operand
+    id="mem_offset"
+    min="4"
+    max="128"
+    stride="4"
+    type="constant"
+    toggle="False">
+    </operand>
+
+    
+  </instructions_operands>
+
+  <instructions>
+
+    <!--In this section you will specify the instructions you want the framework to use in the optimization
+    process.. -->
+
+    <!-- Lets understand how to decalare an instruction by explaining the following example
+    
+       <instruction
+      name="ADD"
+      num_of_operands="3"
+      type="shortLat"
+       operand1="integer_register"
+        operand2="integer_register"
+       operand3="integer_register"
+        format="ADD op1,op2,op3"
+      toggle="False">
+    </instruction> 
+    
+     The name attribute is basically the unique indentifier of this instruction, usually you will be fine by just putting the instruction name (like in the example ADD)... 
+    The num of operands and type attributes are pretty auto-explainable
+    Note that each instruction must belong to an instruction type which was defined in the instruction_type section. As you can see in the example the instruction belongs to shortLatency instruction type
+    
+    For operand1, operand2 and etc you must specify an operand id that exists in the instructions_operands section.. 
+    In the format attribute put the string that represents the syntax of the instruction. op1, op2 and op3 point out to the place where each instruction's operand should be. 
+    don't bother with toggle attribute is broken
+    -->
+
+    
+    <!-- mem instructions -->
+    
+     <instruction
+      name="ADD_1stMem"
+      num_of_operands="2"
+      type="intMem"
+       operand1="mem_offset"
+      operand2="integer_register"
+      format="add op1(%rsp),op2"
+      toggle="False">
+    </instruction>
+    
+      <instruction
+      name="ADD_2ndMem"
+      num_of_operands="2"
+      type="intMem"
+       operand1="integer_register"
+      operand2="mem_offset"
+      format="add op1,op2(%rsp)"
+      toggle="False">
+    </instruction>
+    
+    <instruction
+      name="MUL_1stMem"
+      num_of_operands="2"
+      type="intMem"
+       operand1="mem_offset"
+      operand2="integer_register"
+      format="imul op1(%rsp),op2"
+      toggle="False">
+    </instruction>
+    
+    <instruction
+      name="MOV_1stMem"
+      num_of_operands="2"
+      type="intMem"
+       operand1="mem_offset"
+      operand2="integer_register"
+      format="mov op1(%rsp),op2"
+      toggle="False">
+    </instruction>
+    
+    <instruction
+      name="MOV_2ndMem"
+      num_of_operands="2"
+      type="intMem"
+       operand1="integer_register"
+      operand2="mem_offset"
+      format="mov op1,op2(%rsp)"
+      toggle="False">
+    </instruction>
+    
+
+    <!-- integer  instructions -->
+
+    <instruction
+      name="ADD"
+      num_of_operands="2"
+      type="shortLat"
+       operand1="integer_register"
+      operand2="integer_register"
+      format="add op1,op2"
+      toggle="False">
+    </instruction>
+    
+     <instruction
+      name="ADD_IM"
+      num_of_operands="2"
+      type="shortLat"
+       operand1="imm_value"
+      operand2="integer_register"
+      format="add $op1,op2"
+      toggle="False">
+    </instruction>
+    
+    <instruction
+      name="MUL"
+      num_of_operands="2"
+      type="longLat"
+       operand1="integer_register"
+      operand2="integer_register"
+      format="imul op1,op2"
+      toggle="False">
+    </instruction>
+    
+     <instruction
+      name="MUL_IM"
+      num_of_operands="2"
+      type="longLat"
+       operand1="imm_value"
+      operand2="integer_register"
+      format="imul $op1,op2"
+      toggle="False">
+    </instruction>
+
+
+
+
+    <instruction
+  name="SHL"
+  num_of_operands="2"
+  type="shortLat"
+  format="shl $op1,op2"
+  operand1="shift_value"
+   operand2="integer_register"
+  toggle="False">
+    </instruction>
+
+   <instruction
+  name="SAR"
+  num_of_operands="2"
+  type="shortLat"
+  format="sar $op1,op2"
+  operand1="shift_value"
+   operand2="integer_register"
+  toggle="False">
+    </instruction>
+
+
+  <instruction
+  name="ROR"
+  num_of_operands="2"
+  type="shortLat"
+  format="ror $op1,op2"
+  operand1="shift_value"
+   operand2="integer_register"
+  toggle="False">
+    </instruction>
+
+
+    <instruction
+  name="MOV"
+  num_of_operands="2"
+  type="shortLat"
+  format="mov op1,op2"
+operand1="integer_register"
+  operand2="integer_register"
+  toggle="False"
+      >
+    </instruction>
+    
+    
+    <instruction
+  name="CMP"
+  num_of_operands="2"
+  type="shortLat"
+  format="cmp op1,op2"
+operand1="integer_register"
+  operand2="integer_register"
+  toggle="False"
+      >
+    </instruction>
+    
+<!-- intel floating point -->
+
+
+    <instruction
+   name="FADD"
+   num_of_operands="0"
+   type="floatingPoint"
+   format="faddp"
+    toggle="False">
+    </instruction>
+    
+        <instruction
+   name="FSQRT"
+   num_of_operands="0"
+   type="floatingPoint"
+   format="fsqrt"
+    toggle="False">
+    </instruction>
+    
+        <instruction
+   name="FMUL"
+   num_of_operands="0"
+   type="floatingPoint"
+   format="fmulp"
+    toggle="False">
+    </instruction>
+    
+        <instruction
+   name="FDOV"
+   num_of_operands="0"
+   type="floatingPoint"
+   format="fdivp"
+    toggle="False">
+    </instruction>
+
+<!-- intel simd -->
+
+    <instruction
+    name="ADDPD"
+    num_of_operands="2"
+    type="sse2"
+    format="addpd op1,op2"
+    operand1="sse2_register"
+    operand2="sse2_register"
+    toggle="False">
+    </instruction>
+    
+        <instruction
+    name="ADDSD"
+    num_of_operands="2"
+    type="sse2"
+    format="addsd op1,op2"
+    operand1="sse2_register"
+    operand2="sse2_register" 
+    toggle="False">
+    </instruction>
+
+      <instruction
+    name="MAXSD"
+    num_of_operands="2"
+    type="sse2"
+    format="maxsd op1,op2"
+    operand1="sse2_register"
+    operand2="sse2_register" 
+    toggle="False">
+    </instruction>
+    
+      <instruction
+    name="MAXPD"
+    num_of_operands="2"
+    type="sse2"
+    format="maxpd op1,op2"
+    operand1="sse2_register"
+    operand2="sse2_register" 
+    toggle="False">
+    </instruction>
+    
+    <instruction
+    name="MINSD"
+    num_of_operands="2"
+    type="sse2"
+    format="minsd op1,op2"
+    operand1="sse2_register"
+    operand2="sse2_register" 
+    toggle="False">
+    </instruction>
+    
+      <instruction
+    name="MINPD"
+    num_of_operands="2"
+    type="sse2"
+    format="minpd op1,op2"
+    operand1="sse2_register"
+    operand2="sse2_register" 
+    toggle="False">
+    </instruction>
+    
+        <instruction
+    name="MULSD"
+    num_of_operands="2"
+    type="sse2"
+    format="mulsd op1,op2"
+    operand1="sse2_register"
+    operand2="sse2_register" 
+    toggle="False">
+    </instruction>
+    
+      <instruction
+    name="MULPD"
+    num_of_operands="2"
+    type="sse2"
+    format="mulpd op1,op2"
+    operand1="sse2_register"
+    operand2="sse2_register" 
+    toggle="False">
+    </instruction>
+    
+            <instruction
+    name="SQRTSD"
+    num_of_operands="2"
+    type="sse2"
+    format="sqrtsd op1,op2"
+    operand1="sse2_register"
+    operand2="sse2_register" 
+    toggle="False">
+    </instruction>
+    
+      <instruction
+    name="SQRTPD"
+    num_of_operands="2"
+    type="sse2"
+    format="sqrtpd op1,op2"
+    operand1="sse2_register"
+    operand2="sse2_register" 
+    toggle="False">
+    </instruction>
+
+
+
+
+  </instructions>
+  </GA_inputs>
