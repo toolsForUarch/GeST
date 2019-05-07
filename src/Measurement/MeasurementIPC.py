@@ -29,7 +29,7 @@ class MeasurementIPC(Measurement):
         super().copyFileOverFTP()
         compilation_command="cd "+self.targetRunDir + " ; gcc main.s -o individual &>/dev/null;"
         execution_command="cd "+self.targetRunDir + " ; ./individual & perf stat -e instructions,cycles -o tmp -p $! sleep "+str(self.timeToMeasure) +" ; pkill individual &> /dev/null;"
-        output_command="cd "+self.targetRunDir + " ; cat tmp | grep insns | tr  ',' '.' | awk '{print $4}'; rm main.s; rm individual; rm tmp; ";
+        output_command="cd "+self.targetRunDir + " ; cat tmp | grep insn | tr  ',' '.' | awk '{print $4}'; rm main.s; rm individual; rm tmp; ";
         super().executeSSHcommand(compilation_command)
         super().executeSSHcommand(execution_command)
         stdout=super().executeSSHcommand(output_command)
